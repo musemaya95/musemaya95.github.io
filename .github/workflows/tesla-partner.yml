@@ -1,0 +1,16 @@
+name: Tesla partner registration
+on:
+  workflow_dispatch:
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Register partner account
+        run: |
+          resp=$(curl -s -X POST https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token -H 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'grant_type=client_credentials' --data-urlencode "client_id=${{ secrets.TESLA_CLIENT_ID }}" --data-urlencode "client_secret=${{ secrets.TESLA_CLIENT_SECRET }}" --data-urlencode 'scope=openid vehicle_device_data vehicle_location vehicle_cmds vehicle_charging_cmds' --data-urlencode 'audience=https://fleet-api.prd.na.vn.cloud.tesla.com')
+          token=$(echo "$resp" | jq -r .access_token // empty)
+          if [ -z "$token" ]; then echo "token request failed:"; echo "$resp" | head -c 300; exit 1; fi
+          echo "::add-mask::$token"
+          code=$(curl -s -o /tmp/reg.json -w '%{http_code}' -X POST https://fleet-api.prd.na.vn.cloud.tesla.com/api/1/partner_accounts -H 'Content-Type: application/json' -H "Authorization: Bearer $token" -d '{"domain": "musemaya95.github.io"}')
+          echo "register HTTP $code"
+          head -c 500 /tmp/reg.json
